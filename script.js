@@ -933,65 +933,111 @@ function launchApp(app) {
         renderUI();
         setTimeout(() => win.remove(), 200);
     };
+// ==========================================
+// DRAGGING LOGIC
+// Mouse + Touch + Pen
+// ==========================================
 
-    // Dragging Logic (Mouse & Touch)
-    let isDragging = false;
-    let offsetX, offsetY;
-    const iframe = win.querySelector('iframe');
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
 
-    const startDrag = (clientX, clientY) => {
-        isDragging = true;
-        const rect = win.getBoundingClientRect();
-        offsetX = clientX - rect.left;
-        offsetY = clientY - rect.top;
-        if (iframe) iframe.style.pointerEvents = 'none';
-    };
+const iframe = win.querySelector("iframe");
 
-    const doDrag = (clientX, clientY) => {
-        if (!isDragging) return;
-        win.style.left = `${clientX - offsetX}px`;
-        win.style.top = `${clientY - offsetY}px`;
-    };
+titleBar.addEventListener("pointerdown", (e) => {
 
-    const stopDrag = () => {
-        isDragging = false;
-        if (iframe) iframe.style.pointerEvents = 'auto';
-    };
+    // Only drag with primary pointer
+    if (!e.isPrimary) return;
 
-    // Mouse Events for Dragging
-    titleBar.addEventListener('mousedown', (e) => {
-        startDrag(e.clientX, e.clientY);
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    });
-
-    function onMouseMove(e) { doDrag(e.clientX, e.clientY); }
-    function onMouseUp() {
-        stopDrag();
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
+    // Don't drag when clicking window buttons
+    if (e.target.closest(".window-controls")) {
+        return;
     }
 
-    // Touch Events for Dragging
-    titleBar.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
-        startDrag(touch.clientX, touch.clientY);
-        document.addEventListener('touchmove', onTouchMove, { passive: false });
-        document.addEventListener('touchend', onTouchEnd);
-    });
+    e.preventDefault();
+    e.stopPropagation();
 
-    function onTouchMove(e) {
-        e.preventDefault(); // Prevent scrolling while dragging
-        const touch = e.touches[0];
-        doDrag(touch.clientX, touch.clientY);
+    const rect = win.getBoundingClientRect();
+
+    dragOffsetX =
+        e.clientX - rect.left;
+
+    dragOffsetY =
+        e.clientY - rect.top;
+
+    isDragging = true;
+
+    // Capture pointer so dragging doesn't break
+    // when the cursor leaves the title bar
+    titleBar.setPointerCapture(e.pointerId);
+
+    // Prevent iframe from stealing pointer events
+    if (iframe) {
+        iframe.style.pointerEvents = "none";
     }
 
-    function onTouchEnd() {
-        stopDrag();
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
+    // Bring window to front
+    win.style.zIndex =
+        ++zIndexCounter;
+
+    focusWindow(winId);
+
+});
+
+
+titleBar.addEventListener("pointermove", (e) => {
+
+    if (!isDragging) return;
+
+    e.preventDefault();
+
+    const newLeft =
+        e.clientX - dragOffsetX;
+
+    const newTop =
+        e.clientY - dragOffsetY;
+
+    win.style.left =
+        `${newLeft}px`;
+
+    win.style.top =
+        `${newTop}px`;
+
+});
+
+
+function stopDragging(e) {
+
+    if (!isDragging) return;
+
+    isDragging = false;
+
+    if (
+        e &&
+        titleBar.hasPointerCapture(e.pointerId)
+    ) {
+        titleBar.releasePointerCapture(
+            e.pointerId
+        );
     }
 
+    if (iframe) {
+        iframe.style.pointerEvents =
+            "auto";
+    }
+
+}
+
+
+titleBar.addEventListener(
+    "pointerup",
+    stopDragging
+);
+
+titleBar.addEventListener(
+    "pointercancel",
+    stopDragging
+);
     // Custom Resizing Logic
     const resizeHandle = win.querySelector('.resize-handle');
     let isResizing = false;
@@ -1143,64 +1189,70 @@ function unlockScreen() {
 ========================================== */
 /* ==========================================
    LOCK SCREEN SWIPE TO UNLOCK
+   Mouse + Touch + Pen
 ========================================== */
-let touchStartY = 0;
-let touchCurrentY = 0;
-let isDragging = false;
+
+let lockStartY = 0;
+let lockCurrentY = 0;
+let lockDragging = false;
 
 const SWIPE_THRESHOLD = 100;
 
 
 /* ==========================================
-   TOUCH START
+   POINTER START
 ========================================== */
 
 lockScreen.addEventListener(
-    "touchstart",
-    (event) => {
+    "pointerdown",
+    (e) => {
 
-        touchStartY =
-            event.touches[0].clientY;
+        if (!e.isPrimary) return;
 
-        touchCurrentY =
-            touchStartY;
+        // Only allow left mouse button
+        if (e.pointerType === "mouse" && e.button !== 0) {
+            return;
+        }
 
-        isDragging = true;
+        e.preventDefault();
 
-        // Disable CSS transition while dragging
+        lockStartY = e.clientY;
+        lockCurrentY = e.clientY;
+
+        lockDragging = true;
+
+        // Disable animation while dragging
         lockScreen.style.transition = "none";
 
-    },
-    { passive: true }
+        // Keep receiving pointer events
+        lockScreen.setPointerCapture(
+            e.pointerId
+        );
+
+    }
 );
 
 
 /* ==========================================
-   TOUCH MOVE
+   POINTER MOVE
 ========================================== */
 
 lockScreen.addEventListener(
-    "touchmove",
-    (event) => {
+    "pointermove",
+    (e) => {
 
-        if (!isDragging) return;
+        if (!lockDragging) return;
 
-        touchCurrentY =
-            event.touches[0].clientY;
+        e.preventDefault();
+
+        lockCurrentY = e.clientY;
 
         const distance =
-            touchStartY - touchCurrentY;
+            lockStartY - lockCurrentY;
 
 
-        /*
-        Only move when swiping UP
-        */
-
+        // Only move upward
         if (distance > 0) {
-
-            /*
-            Limit movement to screen height
-            */
 
             const movement =
                 Math.min(
@@ -1208,148 +1260,137 @@ lockScreen.addEventListener(
                     window.innerHeight
                 );
 
-
             lockScreen.style.transform =
                 `translateY(${-movement}px)`;
 
 
-            /*
-            Slight fade while dragging
-            */
-
+            // Slight fade
             const progress =
-                movement / window.innerHeight;
+                movement /
+                window.innerHeight;
 
             lockScreen.style.opacity =
                 1 - progress * 0.15;
 
         }
 
-    },
-    { passive: true }
+    }
 );
 
 
 /* ==========================================
-   TOUCH END
+   POINTER END
 ========================================== */
 
-lockScreen.addEventListener(
-    "touchend",
-    () => {
+function finishLockSwipe(e) {
 
-        if (!isDragging) return;
+    if (!lockDragging) return;
 
-        isDragging = false;
+    lockDragging = false;
 
-        const distance =
-            touchStartY - touchCurrentY;
+    if (
+        e &&
+        lockScreen.hasPointerCapture(
+            e.pointerId
+        )
+    ) {
 
-
-        /*
-        ========================================
-        SWIPE WAS LONG ENOUGH
-        ========================================
-        */
-
-        if (
-            distance >= SWIPE_THRESHOLD
-        ) {
-
-            /*
-            Re-enable transition
-            */
-
-            lockScreen.style.transition =
-                "transform 0.55s cubic-bezier(.22,.8,.2,1), opacity 0.45s ease";
-
-
-            /*
-            Continue from current position
-            and smoothly finish the swipe
-            */
-
-            requestAnimationFrame(() => {
-
-                lockScreen.style.transform =
-                    "translateY(-100%)";
-
-                lockScreen.style.opacity =
-                    "0";
-
-            });
-
-
-            /*
-            Mark as unlocked after animation
-            */
-
-            setTimeout(() => {
-
-                lockScreen.classList.add(
-                    "unlocked"
-                );
-
-                /*
-                Clear inline styles
-                */
-
-                lockScreen.style.transform =
-                    "";
-
-                lockScreen.style.opacity =
-                    "";
-
-                lockScreen.style.transition =
-                    "";
-
-            }, 600);
-
-        }
-
-
-        /*
-        ========================================
-        SWIPE WAS TOO SHORT
-        ========================================
-        */
-
-        else {
-
-            /*
-            Smoothly return to original position
-            */
-
-            lockScreen.style.transition =
-                "transform 0.4s cubic-bezier(.22,.8,.2,1), opacity 0.3s ease";
-
-
-            lockScreen.style.transform =
-                "translateY(0)";
-
-            lockScreen.style.opacity =
-                "1";
-
-
-            /*
-            Clear transition after animation
-            */
-
-            setTimeout(() => {
-
-                lockScreen.style.transition =
-                    "";
-
-            }, 450);
-
-        }
-
-
-        touchStartY = 0;
-
-        touchCurrentY = 0;
+        lockScreen.releasePointerCapture(
+            e.pointerId
+        );
 
     }
+
+
+    const distance =
+        lockStartY -
+        lockCurrentY;
+
+
+    /* ========================================
+       SWIPE UP ENOUGH → UNLOCK
+    ======================================== */
+
+    if (
+        distance >=
+        SWIPE_THRESHOLD
+    ) {
+
+        lockScreen.style.transition =
+            "transform 0.55s cubic-bezier(.22,.8,.2,1), opacity 0.45s ease";
+
+
+        requestAnimationFrame(() => {
+
+            lockScreen.style.transform =
+                "translateY(-100%)";
+
+            lockScreen.style.opacity =
+                "0";
+
+        });
+
+
+        setTimeout(() => {
+
+            lockScreen.classList.add(
+                "unlocked"
+            );
+
+            lockScreen.style.transform =
+                "";
+
+            lockScreen.style.opacity =
+                "";
+
+            lockScreen.style.transition =
+                "";
+
+        }, 600);
+
+    }
+
+
+    /* ========================================
+       SWIPE TOO SHORT → RETURN
+    ======================================== */
+
+    else {
+
+        lockScreen.style.transition =
+            "transform 0.4s cubic-bezier(.22,.8,.2,1), opacity 0.3s ease";
+
+        lockScreen.style.transform =
+            "translateY(0)";
+
+        lockScreen.style.opacity =
+            "1";
+
+
+        setTimeout(() => {
+
+            lockScreen.style.transition =
+                "";
+
+        }, 450);
+
+    }
+
+
+    lockStartY = 0;
+    lockCurrentY = 0;
+
+}
+
+
+lockScreen.addEventListener(
+    "pointerup",
+    finishLockSwipe
+);
+
+lockScreen.addEventListener(
+    "pointercancel",
+    finishLockSwipe
 );
 /* ==========================================
    START CLOCK
