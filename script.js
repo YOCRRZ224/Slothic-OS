@@ -120,6 +120,14 @@ const defaultApps = [
         url: "https://zombsroyale.io/",
         icon: "https://zombsroyale.io/favicon.ico",
         inDock: false
+    },
+    {
+        id: 13,
+        name: "Powder Game",
+        category: "games",
+        url: "https://dan-ball.jp/en/javagame/dust",
+        icon: "https://dan-ball.jp/favicon.ico",
+        inDock: false
     }
 ];
 
