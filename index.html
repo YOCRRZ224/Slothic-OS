@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debian WebOS</title>
+    <style>
+        /* Base Reset & Wallpaper */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: url('https://images.unsplash.com/photo-1629654261173-0428d08cb5f1?q=80&w=1920&auto=format&fit=crop') no-repeat center/cover;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            user-select: none;
+            transition: background 0.5s ease-in-out;
+        }
+        
+        #desktop {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+/* ==========================================
+   ICON ONLY DOCK
+========================================== */
+
+#dock {
+    position: fixed;
+
+    /* True viewport centering */
+    left: 0;
+    right: 0;
+
+    bottom: 8px;
+
+    width: 100%;
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+
+    height: 70px;
+
+    z-index: 1000;
+
+    pointer-events: none;
+}
+
+
+/* ==========================================
+   ACTUAL DOCK CONTENT
+========================================== */
+
+#dock-content {
+    display: flex;
+
+    align-items: flex-end;
+
+    justify-content: center;
+
+    width: max-content;
+
+    height: 70px;
+
+    pointer-events: auto;
+}
+
+
+/* ==========================================
+   APP CONTAINER
+========================================== */
+
+#dock-apps {
+    display: flex !important;
+
+    align-items: flex-end;
+
+    justify-content: center;
+
+    gap: 8px !important;
+
+    width: max-content;
+
+    height: 100%;
+
+    overflow: visible;
+}
+
+
+/* ==========================================
+   DOCK ITEM
+========================================== */
+
+.dock-item {
+    position: relative;
+
+    width: 52px;
+    height: 62px;
+
+    display: flex;
+
+    align-items: flex-end;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    transform-origin: bottom center;
+
+    transition:
+        transform 180ms cubic-bezier(.2,.8,.2,1);
+}
+
+
+/* ==========================================
+   ICON
+========================================== */
+
+.app-icon {
+    width: 48px;
+    height: 48px;
+
+    object-fit: cover;
+
+    border-radius: 12px;
+
+    cursor: pointer;
+
+    background: transparent;
+
+    transform-origin: bottom center;
+
+    transition:
+        transform 180ms cubic-bezier(.2,.8,.2,1),
+        filter 180ms ease;
+}
+
+
+/* ==========================================
+   MAGNIFICATION
+========================================== */
+
+.dock-item:hover {
+    transform:
+        translateY(-12px)
+        scale(1.25);
+
+    z-index: 10;
+}
+
+
+/* Neighbouring icon */
+
+.dock-item:hover + .dock-item {
+    transform:
+        translateY(-5px)
+        scale(1.1);
+}
+
+.dock-item:has(+ .dock-item:hover) {
+    transform:
+        translateY(-5px)
+        scale(1.1);
+}
+
+
+/* ==========================================
+   DEBIAN ICON
+========================================== */
+
+#debian-btn {
+    width: 48px;
+    height: 48px;
+
+    flex-shrink: 0;
+
+    cursor: pointer;
+
+    background:
+        url('https://res.cloudinary.com/avstvyv9/image/upload/v1784973551/pngwing.com_dyo0hd.png')
+        center / contain
+        no-repeat;
+
+    filter:
+        drop-shadow(0 2px 4px rgba(0,0,0,.5));
+
+    transform-origin: bottom center;
+
+    transition:
+        transform 180ms cubic-bezier(.2,.8,.2,1),
+        filter 180ms ease;
+}
+
+
+#debian-btn:hover {
+    transform:
+        translateY(-12px)
+        scale(1.25);
+
+    filter:
+        drop-shadow(0 6px 10px rgba(0,0,0,.6));
+
+    z-index: 10;
+}
+
+
+/* ==========================================
+   DIVIDER
+========================================== */
+
+.dock-divider {
+    width: 1px;
+
+    height: 35px;
+
+    margin:
+        0 10px 4px;
+
+    background:
+        rgba(255,255,255,.35);
+}
+
+
+/* ==========================================
+   RUNNING INDICATOR
+========================================== */
+
+.dock-indicator {
+    position: absolute;
+
+    bottom: 0;
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    background: transparent;
+}
+
+.dock-indicator.running {
+    background: rgba(255,255,255,.65);
+}
+
+.dock-indicator.focused {
+    background: #fff;
+
+    box-shadow:
+        0 0 7px rgba(255,255,255,.9);
+}
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+
+    #dock {
+        left: 0;
+        right: 0;
+        bottom: 5px;
+
+        transform: none;
+
+        justify-content: center;
+
+        max-width: 100vw;
+
+        overflow-x: auto;
+
+        padding: 0 8px;
+    }
+
+    #dock::-webkit-scrollbar {
+        display: none;
+    }
+
+    #dock-apps {
+        overflow-x: auto;
+
+        scrollbar-width: none;
+    }
+
+    #dock-apps::-webkit-scrollbar {
+        display: none;
+    }
+
+    .dock-item {
+        width: 48px;
+        height: 58px;
+    }
+
+    .app-icon,
+    #debian-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    /* Smaller touch magnification */
+
+    .dock-item:hover {
+        transform:
+            translateY(-6px)
+            scale(1.1);
+    }
+
+    #debian-btn:hover {
+        transform:
+            translateY(-6px)
+            scale(1.1);
+    }
+}
+        /* Animations */
+        @keyframes menuOpen {
+            from { transform: translateX(-50%) translateY(20px) scale(0.95); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+        }
+
+        @keyframes menuClose {
+            from { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+            to { transform: translateX(-50%) translateY(20px) scale(0.95); opacity: 0; }
+        }
+
+        @keyframes windowOpen {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        #whisker-menu {
+            position: absolute;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            width: 320px;
+            height: 450px;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+            padding: 20px;
+            display: none;
+            align-content: flex-start;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            z-index: 999;
+            opacity: 0;
+        }
+        #whisker-menu.active {
+            display: grid;
+            animation: menuOpen 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        #whisker-menu.closing {
+            display: grid;
+            animation: menuClose 0.15s ease-in forwards;
+        }
+
+
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 65px;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .menu-item:hover {
+            transform: scale(1.1);
+        }
+
+        .menu-item img {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            background: #333;
+            transition: box-shadow 0.2s;
+        }
+
+        .menu-item:hover img {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        .menu-item span {
+            font-size: 12px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+
+
+
+        /* Add App Button */
+        #add-app-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            cursor: pointer;
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+            margin-bottom: 8px;
+            color: #aaa;
+            transition: all 0.2s;
+        }
+
+        .menu-item:hover #add-app-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #fff;
+            color: #fff;
+        }
+
+        /* Window System */
+        .window {
+            position: absolute;
+            width: 800px;
+            max-width: 100vw;
+            height: 600px;
+            max-height: calc(100vh - 80px); /* Leave space for dock */
+            background: rgba(30, 30, 30, 0.4); /* Glassmorphism Base */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            resize: both;
+            animation: windowOpen 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+            box-sizing: border-box;
+        }
+
+        .window.closing {
+            transform: scale(0.95);
+            opacity: 0;
+        }
+
+        .title-bar {
+            height: 38px;
+            background: rgba(255, 255, 255, 0.05); /* Glassmorphic Title Bar */
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 15px;
+            cursor: grab;
+        }
+
+        .title-bar:active {
+            cursor: grabbing;
+        }
+
+        .title-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .title-info img {
+            width: 18px;
+            height: 18px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.1s;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+        }
+
+        .btn-max { background: #28c940; }
+        .btn-close { background: #ff5f56; }
+
+        .btn:hover::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.2);
+            border-radius: 50%;
+        }
+
+        .window-content {
+            flex: 1;
+            background: #000;
+        }
+
+        .window-content iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #fff;
+        }
+
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            cursor: se-resize;
+            z-index: 10;
+        }
+        
+        /* Modals */
+        #os-modal, #add-app-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
+            opacity: 1; transition: opacity 0.2s;
+        }
+        #os-modal.hidden, #add-app-modal.hidden { opacity: 0; pointer-events: none; }
+        
+        .modal-content {
+            background: rgba(40, 40, 40, 0.6); padding: 25px; border-radius: 16px;
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            width: 320px; border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);
+            transform: scale(1); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .hidden .modal-content {
+            transform: scale(0.9);
+        }
+
+        .modal-content input {
+            width: calc(100% - 22px); padding: 10px; margin: 10px 0;
+            background: #111; border: 1px solid #444; color: #fff; border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+        .modal-content input:focus {
+            border-color: #0078d7; outline: none;
+        }
+
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px; }
+        .modal-buttons button {
+            padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer;
+            transition: background 0.2s, transform 0.1s; font-weight: bold;
+        }
+        .modal-buttons button:active {
+            transform: scale(0.95);
+        }
+        .modal-cancel { background: #444; color: white; }
+        .modal-cancel:hover { background: #555; }
+        .modal-ok { background: #0078d7; color: white; }
+        .modal-ok:hover { background: #0086f0; }
+
+        /* Context Menus */
+        .context-menu {
+            position: absolute; background: rgba(30, 30, 30, 0.5); border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px; padding: 5px; z-index: 10000; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            transform-origin: top left;
+            animation: windowOpen 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .context-menu.hidden { display: none; animation: none; }
+        
+        .ctx-item {
+            padding: 8px 15px; cursor: pointer; font-size: 13px; border-radius: 4px;
+            transition: background 0.1s;
+        }
+        .ctx-item:hover { background: #0078d7; color: white; }
+
+        /* Responsiveness */
+        @media (max-width: 850px) {
+            .window {
+                width: 90vw;
+                height: 70vh;
+            }
+        }
+        
+      @media (max-width: 450px) {
+
+    #dock {
+        bottom: 5px;
+    }
+
+    #dock-apps {
+        max-width: calc(100vw - 80px);
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    #dock-apps::-webkit-scrollbar {
+        display: none;
+    }
+}
+/* ==========================================
+   RIGHT-SIDE DOCK CONTROLS
+========================================== */
+
+#dock-controls {
+    position: fixed;
+
+    right: 18px;
+    bottom: 10px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    height: 60px;
+
+    z-index: 1001;
+}
+
+
+/* ==========================================
+   CLOCK
+========================================== */
+
+#dock-clock {
+    display: flex;
+    flex-direction: column;
+
+    align-items: flex-end;
+    justify-content: center;
+
+    cursor: pointer;
+
+    padding: 4px 8px;
+
+    color: white;
+
+    text-shadow:
+        0 2px 10px rgba(0, 0, 0, 0.7);
+
+    transition:
+        transform 0.2s ease,
+        opacity 0.2s ease;
+}
+
+
+#dock-clock:hover {
+    transform: translateY(-2px);
+
+    opacity: 0.85;
+}
+
+
+#dock-time {
+    font-size: 10px;
+
+    font-weight: 500;
+
+    letter-spacing: -0.5px;
+
+    line-height: 1;
+}
+
+
+#dock-date {
+    margin-top: 4px;
+
+    font-size: 11px;
+
+    font-weight: 400;
+
+    opacity: 0.7;
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+
+    #dock-controls {
+        right: 10px;
+        bottom: 5px;
+    }
+
+    #dock-time {
+        font-size: 16px;
+    }
+
+    #dock-date {
+        font-size: 9px;
+    }
+
+}
+/* ==========================================
+   LOCK SCREEN
+========================================== */
+
+#lock-screen {
+    position: fixed;
+
+    inset: 0;
+
+    z-index: 999999;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    /*
+    Glassmorphism
+    The desktop wallpaper remains visible
+    underneath the lock screen.
+    */
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.10),
+            rgba(255, 255, 255, 0.03)
+        );
+
+    backdrop-filter:
+        blur(30px)
+        saturate(140%);
+
+    -webkit-backdrop-filter:
+        blur(30px)
+        saturate(140%);
+
+    /*
+    Subtle glass border
+    */
+
+    border:
+        1px solid rgba(255, 255, 255, 0.12);
+
+    /*
+    Keep the lock screen fully visible
+    */
+
+    opacity: 1;
+
+    visibility: visible;
+
+    pointer-events: auto;
+
+    /*
+    Initial position
+    */
+
+    transform:
+        translateY(0);
+
+    /*
+    Smooth unlock animation
+    */
+
+    transition:
+        transform 0.75s cubic-bezier(.22, .8, .2, 1),
+        opacity 0.5s ease,
+        backdrop-filter 0.75s ease;
+
+    /*
+    Prevent accidental text selection
+    */
+
+    user-select: none;
+
+    touch-action: none;
+
+    overflow: hidden;
+}
+
+
+/* ==========================================
+   GLASS LIGHT EFFECT
+========================================== */
+
+#lock-screen::before {
+
+    content: "";
+
+    position: absolute;
+
+    inset: 0;
+
+    pointer-events: none;
+
+    background:
+        radial-gradient(
+            circle at 50% 35%,
+            rgba(255, 255, 255, 0.12),
+            transparent 45%
+        );
+
+    opacity: 0.7;
+}
+
+
+/* ==========================================
+   LOCKED STATE
+========================================== */
+
+#lock-screen.locked {
+
+    opacity: 1;
+
+    visibility: visible;
+
+    pointer-events: auto;
+
+    transform:
+        translateY(0);
+}
+
+
+/* ==========================================
+   UNLOCKED STATE
+========================================== */
+
+#lock-screen.unlocked {
+
+    /*
+    Slide the entire lock screen
+    upward and off the screen
+    */
+
+    transform:
+        translateY(-100%);
+
+    opacity: 0;
+
+    visibility: hidden;
+
+    pointer-events: none;
+}
+
+
+/* ==========================================
+   CONTENT
+========================================== */
+
+.lock-content {
+
+    position: relative;
+
+    z-index: 2;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+
+    justify-content: center;
+
+    color: white;
+
+    text-align: center;
+
+    text-shadow:
+        0 4px 25px rgba(0, 0, 0, 0.45);
+
+    transform:
+        translateY(0);
+
+    transition:
+        transform 0.75s cubic-bezier(.22, .8, .2, 1),
+        opacity 0.5s ease;
+}
+
+
+/* ==========================================
+   CONTENT ANIMATION ON UNLOCK
+========================================== */
+
+#lock-screen.unlocked .lock-content {
+
+    transform:
+        translateY(-80px)
+        scale(1.05);
+
+    opacity: 0;
+}
+
+
+/* ==========================================
+   TIME
+========================================== */
+
+#lock-time {
+
+    font-size:
+        clamp(70px, 10vw, 140px);
+
+    font-weight: 300;
+
+    line-height: 0.9;
+
+    letter-spacing: -5px;
+
+    text-shadow:
+        0 5px 30px rgba(0, 0, 0, 0.35);
+}
+
+
+/* ==========================================
+   DATE
+========================================== */
+
+#lock-date {
+
+    margin-top: 18px;
+
+    font-size:
+        clamp(18px, 2vw, 26px);
+
+    font-weight: 400;
+
+    opacity: 0.9;
+}
+
+
+/* ==========================================
+   UNLOCK HINT
+========================================== */
+
+.unlock-hint {
+
+    margin-top: 70px;
+
+    font-size: 14px;
+
+    font-weight: 400;
+
+    opacity: 0.65;
+
+    animation:
+        unlockPulse 2s ease-in-out infinite;
+}
+
+
+/* ==========================================
+   UNLOCK HINT ANIMATION
+========================================== */
+
+@keyframes unlockPulse {
+
+    0%,
+    100% {
+
+        opacity: 0.45;
+
+        transform:
+            translateY(0);
+
+    }
+
+    50% {
+
+        opacity: 0.9;
+
+        transform:
+            translateY(-6px);
+
+    }
+
+}
+
+
+/* ==========================================
+   SWIPE INDICATOR
+========================================== */
+
+.unlock-hint::after {
+
+    content: "↑";
+
+    display: block;
+
+    margin-top: 10px;
+
+    font-size: 20px;
+
+    opacity: 0.8;
+
+    animation:
+        swipeArrow 1.5s ease-in-out infinite;
+}
+
+
+/* ==========================================
+   SWIPE ARROW ANIMATION
+========================================== */
+
+@keyframes swipeArrow {
+
+    0%,
+    100% {
+
+        transform:
+            translateY(0);
+
+        opacity: 0.4;
+
+    }
+
+    50% {
+
+        transform:
+            translateY(-8px);
+
+        opacity: 1;
+
+    }
+
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+
+    #lock-time {
+
+        font-size: 75px;
+
+        letter-spacing: -3px;
+
+    }
+
+    #lock-date {
+
+        font-size: 18px;
+
+    }
+
+    .unlock-hint {
+
+        margin-top: 55px;
+
+    }
+
+}
+/* ==========================================
+   SYSTEM ACTIONS — SMALL BOTTOM RIGHT
+========================================== */
+
+.whisker-system-actions {
+    grid-column: 1 / -1;
+
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+
+    gap: 6px;
+    margin-top: 4px;
+    padding-top: 0;
+
+    /* Remove divider */
+    border-top: none;
+}
+
+
+/* ==========================================
+   SYSTEM MENU ITEM
+========================================== */
+
+.system-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    
+    cursor: pointer;
+
+    opacity: 0.7;
+
+    transition:
+        transform 0.2s cubic-bezier(.175,.885,.32,1.275),
+        opacity 0.2s ease;
+}
+
+
+.system-menu-item:hover {
+    transform: scale(1.12);
+    opacity: 1;
+}
+
+
+/* ==========================================
+   SMALL SYSTEM ICON
+========================================== */
+
+.system-menu-icon {
+    width: 15px;
+    height: 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 16px;
+
+
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    transition:
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+
+
+
+
+/* ==========================================
+   SMALL LABEL
+========================================== */
+
+.system-menu-item span {
+    margin-top: 3px;
+
+    font-size: 9px;
+
+    text-align: center;
+
+    white-space: nowrap;
+
+    opacity: 0.75;
+}
+
+.whisker-system-actions {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+
+    display: flex;
+    gap: 6px;
+
+    padding: 0;
+    margin: 0;
+
+    border: none;
+}
+
+#add-app-btn {
+    position: static;
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (max-width: 600px) {
+
+    .whisker-system-actions {
+        gap: 5px;
+    }
+
+    .system-menu-item {
+        width: 38px;
+    }
+
+    .system-menu-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 15px;
+    }
+
+    .system-menu-item span {
+        font-size: 8px;
+    }
+
+}
+    </style>
+</head>
+<body>
+    <!-- ================================
+     LOCK SCREEN
+================================ -->
+
+<div id="lock-screen">
+
+    <div class="lock-content">
+
+        <div id="lock-time">00:00</div>
+
+        <div id="lock-date">
+            Loading...
+        </div>
+
+        <div class="unlock-hint">
+            Click anywhere to unlock
+        </div>
+
+    </div>
+
+</div>
+    <div id="desktop">
+        <!-- Whisker Menu (Hidden by default) -->
+        <div id="whisker-menu"></div>
+        
+        <!-- Center Dock -->
+       <div id="dock">
+
+    <div id="dock-content">
+
+        <div id="debian-btn" title="Menu"></div>
+
+        <div class="dock-divider"></div>
+
+        <div id="dock-apps">
+            <!-- Dock apps injected via JS -->
+        </div>
+<div id="dock-controls">
+    <div id="dock-clock">
+        <span id="dock-time">00:00</span>
+        <span id="dock-date">Loading...</span>
+    </div>
+
+</div>
+    </div>
+
+</div>
+    </div>
+    
+    <!-- Generic Prompt Modal -->
+    <div id="os-modal" class="hidden">
+        <div class="modal-content">
+            <h3 id="modal-title">Title</h3>
+            <input type="text" id="modal-input" autocomplete="off">
+            <div class="modal-buttons">
+                <button class="modal-cancel" id="modal-cancel">Cancel</button>
+                <button class="modal-ok" id="modal-ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add App Modal -->
+    <div id="add-app-modal" class="hidden">
+        <div class="modal-content">
+            <h3>Add New App</h3>
+            <input type="text" id="add-app-name" placeholder="App Name (e.g., Nmap Web)" autocomplete="off">
+            <input type="text" id="add-app-url" placeholder="App URL (e.g., https://example.com)" autocomplete="off">
+            <input type="text" id="add-app-icon" placeholder="Icon URL (Optional)" autocomplete="off">
+            <div class="modal-buttons">
+                <button class="modal-cancel" id="add-app-cancel">Cancel</button>
+                <button class="modal-ok" id="add-app-ok">Add App</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Context Menu -->
+    <div id="context-menu" class="context-menu hidden">
+        <div id="toggle-pin-btn" class="ctx-item">Toggle Dock Pin</div>
+        <div id="delete-app-btn" class="ctx-item" style="color: #ff5f56;">Uninstall</div>
+    </div>
+
+    <!-- Desktop Context Menu -->
+    <div id="desktop-context-menu" class="context-menu hidden">
+        <div id="fullscreen-btn" class="ctx-item">Toggle Fullscreen</div>
+        <div id="change-wallpaper-btn" class="ctx-item">Change Wallpaper</div>
+        <div id="developer-btn" class="ctx-item">Developer</div>
+    </div>
+
+    <!-- Hidden file input for wallpaper -->
+    <input type="file" id="wallpaper-upload" accept="image/*" style="display: none;">
+
+    <script src="script.js"></script>
+</body>
+</html>
