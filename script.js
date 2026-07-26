@@ -102,27 +102,19 @@ const defaultApps = [
         name: "Minecraft",
         category: "games",
         url: "https://classic.minecraft.net/",
-        icon: "https://classic.minecraft.net/favicon.ico",
+        icon: "https://classic.minecraft.net/assets/textures/tree_side.png",
         inDock: false
     },
     {
         id: 11,
-        name: "Dark Snake",
+        name: "Venge",
         category: "games",
-        url: "https://darksnakegang.github.io/",
-        icon: "https://darksnakegang.github.io/favicon.ico",
+        url: "https://venge.io/",
+        icon: "https://venge.io/files/assets/29307648/1/FattySky00_Night_01.png?t=8ef439e5922424e740d997a73e46b244?v=ecebc5",
         inDock: false
     },
     {
         id: 12,
-        name: "Venge",
-        category: "games",
-        url: "https://venge.io/",
-        icon: "https://venge.io/favicon.ico",
-        inDock: false
-    },
-    {
-        id: 13,
         name: "Zombie royal",
         category: "games",
         url: "https://zombsroyale.io/",
