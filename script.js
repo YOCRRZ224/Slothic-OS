@@ -1,3 +1,4 @@
+let currentSnapZone = null;
 const defaultApps = [
     // ────────────────
     // DEVELOPMENT
@@ -866,248 +867,1480 @@ async function addNewApp() {
     saveApps(); // Save to LocalStorage
     renderUI();
 }
+/* ==========================================
+   WINDOW TILING SYSTEM
+========================================== */
 
-// Window Management
-function launchApp(app) {
-    closeWhiskerMenu();
-    
-    const winId = Date.now() + Math.random();
-    const win = document.createElement('div');
-    win.className = 'window';
-    win.style.zIndex = ++zIndexCounter;
-    
-    // Stagger window spawns slightly
-    const offset = (zIndexCounter % 10) * 30;
-    
-    // Calculate centered position for responsive devices
-    let startTop = 50 + offset;
-    let startLeft = 100 + offset;
+const TILE_GAP = 8;
+const SNAP_EDGE = 35;
 
-    if (window.innerWidth <= 850) {
-        startTop = 30 + (offset/2);
-        startLeft = (window.innerWidth - (window.innerWidth * 0.9)) / 2 + (offset/2);
+
+/* ==========================================
+   CREATE TILE PREVIEW
+========================================== */
+
+function createTilePreview() {
+
+    if (document.getElementById("tile-preview")) {
+        return document.getElementById("tile-preview");
     }
 
-    win.style.top = `${startTop}px`;
-    win.style.left = `${startLeft}px`;
+    const preview =
+        document.createElement("div");
 
-    win.innerHTML = `
-        <div class="title-bar">
-            <div class="title-info">
-                <img src="${app.icon}" onerror="this.src='https://via.placeholder.com/18/333333/FFFFFF?text=${app.name.charAt(0)}'">
-                <span>${app.name}</span>
-            </div>
-            <div class="window-controls">
-                <button class="btn btn-max" title="Open in New Tab (Maximize)"></button>
-                <button class="btn btn-close" title="Exit"></button>
-            </div>
-        </div>
-        <div class="window-content">
-            <iframe src="${app.url}"></iframe>
-        </div>
-        <div class="resize-handle"></div>
-    `;
+    preview.id = "tile-preview";
 
-    desktop.appendChild(win);
-    
-    // Add to openWindows state
-    openWindows.push({ id: winId, appId: app.id, winElement: win, focused: true });
-    focusWindow(winId);
+    desktop.appendChild(preview);
 
-    // Bring window to front when clicked
-    const bringToFront = () => {
-        win.style.zIndex = ++zIndexCounter;
-        focusWindow(winId);
+    return preview;
+}
+
+
+/* ==========================================
+   GET DESKTOP BOUNDS
+========================================== */
+
+function getDesktopBounds() {
+
+    const rect =
+        desktop.getBoundingClientRect();
+
+    return {
+        width: rect.width,
+        height: rect.height
     };
-    win.addEventListener('mousedown', bringToFront);
-    win.addEventListener('touchstart', bringToFront, { passive: true });
+}
 
-    // Window Controls Logic
-    const closeBtn = win.querySelector('.btn-close');
-    const maxBtn = win.querySelector('.btn-max');
-    const titleBar = win.querySelector('.title-bar');
 
-    closeBtn.onclick = () => {
-        win.classList.add('closing');
-        openWindows = openWindows.filter(w => w.id !== winId);
-        renderUI();
-        setTimeout(() => win.remove(), 200); // Wait for animation to finish
-    };
-    
-    maxBtn.onclick = () => {
-        window.open(app.url, '_blank');
-        win.classList.add('closing');
-        openWindows = openWindows.filter(w => w.id !== winId);
-        renderUI();
-        setTimeout(() => win.remove(), 200);
-    };
-// ==========================================
-// DRAGGING LOGIC
-// Mouse + Touch + Pen
-// ==========================================
+/* ==========================================
+   DETECT SNAP ZONE
+========================================== */
 
-let isDragging = false;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
+function detectSnapZone(clientX, clientY) {
 
-const iframe = win.querySelector("iframe");
+    const rect =
+        desktop.getBoundingClientRect();
 
-titleBar.addEventListener("pointerdown", (e) => {
+    const x =
+        clientX - rect.left;
 
-    // Only drag with primary pointer
-    if (!e.isPrimary) return;
+    const y =
+        clientY - rect.top;
 
-    // Don't drag when clicking window buttons
-    if (e.target.closest(".window-controls")) {
+    const width =
+        rect.width;
+
+    const height =
+        rect.height;
+
+    const edge =
+        SNAP_EDGE;
+
+
+    /* ========================================
+       TOP LEFT
+    ======================================== */
+
+    if (
+        x <= edge &&
+        y <= edge
+    ) {
+        return "top-left";
+    }
+
+
+    /* ========================================
+       TOP RIGHT
+    ======================================== */
+
+    if (
+        x >= width - edge &&
+        y <= edge
+    ) {
+        return "top-right";
+    }
+
+
+    /* ========================================
+       BOTTOM LEFT
+    ======================================== */
+
+    if (
+        x <= edge &&
+        y >= height - edge
+    ) {
+        return "bottom-left";
+    }
+
+
+    /* ========================================
+       BOTTOM RIGHT
+    ======================================== */
+
+    if (
+        x >= width - edge &&
+        y >= height - edge
+    ) {
+        return "bottom-right";
+    }
+
+
+    /* ========================================
+       LEFT
+    ======================================== */
+
+    if (x <= edge) {
+        return "left";
+    }
+
+
+    /* ========================================
+       RIGHT
+    ======================================== */
+
+    if (x >= width - edge) {
+        return "right";
+    }
+
+
+    /* ========================================
+       TOP
+    ======================================== */
+
+    if (y <= edge) {
+        return "maximize";
+    }
+
+
+    return null;
+}
+
+
+/* ==========================================
+   GET TILE RECTANGLE
+========================================== */
+
+function getTileRect(mode) {
+
+    const {
+        width,
+        height
+    } = getDesktopBounds();
+
+
+    const halfWidth =
+        (width - TILE_GAP) / 2;
+
+    const halfHeight =
+        (height - TILE_GAP) / 2;
+
+
+    switch (mode) {
+
+        case "left":
+
+            return {
+                left: 0,
+                top: 0,
+                width: halfWidth,
+                height: height
+            };
+
+
+        case "right":
+
+            return {
+                left: halfWidth + TILE_GAP,
+                top: 0,
+                width: halfWidth,
+                height: height
+            };
+
+
+        case "maximize":
+
+            return {
+                left: 0,
+                top: 0,
+                width: width,
+                height: height
+            };
+
+
+        case "top-left":
+
+            return {
+                left: 0,
+                top: 0,
+                width: halfWidth,
+                height: halfHeight
+            };
+
+
+        case "top-right":
+
+            return {
+                left: halfWidth + TILE_GAP,
+                top: 0,
+                width: halfWidth,
+                height: halfHeight
+            };
+
+
+        case "bottom-left":
+
+            return {
+                left: 0,
+                top: halfHeight + TILE_GAP,
+                width: halfWidth,
+                height: halfHeight
+            };
+
+
+        case "bottom-right":
+
+            return {
+                left: halfWidth + TILE_GAP,
+                top: halfHeight + TILE_GAP,
+                width: halfWidth,
+                height: halfHeight
+            };
+
+
+        default:
+
+            return null;
+    }
+}
+
+
+/* ==========================================
+   SHOW SNAP PREVIEW
+========================================== */
+
+function showTilePreview(mode) {
+
+    const preview =
+        createTilePreview();
+
+    const rect =
+        getTileRect(mode);
+
+    if (!rect) return;
+
+
+    currentSnapZone = mode;
+
+
+    preview.style.left =
+        `${rect.left}px`;
+
+    preview.style.top =
+        `${rect.top}px`;
+
+    preview.style.width =
+        `${rect.width}px`;
+
+    preview.style.height =
+        `${rect.height}px`;
+
+    preview.className =
+        "visible";
+
+    preview.id =
+        "tile-preview";
+}
+
+
+/* ==========================================
+   HIDE SNAP PREVIEW
+========================================== */
+
+function hideTilePreview() {
+
+    const preview =
+        document.getElementById(
+            "tile-preview"
+        );
+
+    if (!preview) return;
+
+    preview.classList.remove(
+        "visible"
+    );
+
+    currentSnapZone = null;
+}
+
+
+/* ==========================================
+   APPLY TILE
+========================================== */
+
+function applyTile(winData, mode) {
+
+    if (
+        !winData ||
+        !winData.winElement
+    ) {
         return;
     }
 
-    e.preventDefault();
-    e.stopPropagation();
+    const rect =
+        getTileRect(mode);
 
-    const rect = win.getBoundingClientRect();
+    if (!rect) return;
 
-    dragOffsetX =
-        e.clientX - rect.left;
+    const win =
+        winData.winElement;
 
-    dragOffsetY =
-        e.clientY - rect.top;
 
-    isDragging = true;
+    winData.tiled = true;
+    winData.tileMode = mode;
 
-    // Capture pointer so dragging doesn't break
-    // when the cursor leaves the title bar
-    titleBar.setPointerCapture(e.pointerId);
 
-    // Prevent iframe from stealing pointer events
-    if (iframe) {
-        iframe.style.pointerEvents = "none";
+    win.classList.add(
+        "tiled"
+    );
+
+
+    win.style.left =
+        `${rect.left}px`;
+
+    win.style.top =
+        `${rect.top}px`;
+
+    win.style.width =
+        `${rect.width}px`;
+
+    win.style.height =
+        `${rect.height}px`;
+
+
+    // Make sure the window remains on top
+    win.style.zIndex =
+        ++zIndexCounter;
+}
+
+
+/* ==========================================
+   RESTORE FLOATING WINDOW
+========================================== */
+
+function restoreWindow(winData) {
+
+    if (
+        !winData ||
+        !winData.winElement
+    ) {
+        return;
     }
 
-    // Bring window to front
+    const win =
+        winData.winElement;
+
+
+    winData.tiled = false;
+    winData.tileMode = null;
+
+
+    win.classList.remove(
+        "tiled"
+    );
+
+
+    /*
+       Put the window back at a
+       sensible floating size.
+    */
+
+    const width =
+        Math.min(
+            760,
+            desktop.clientWidth - 40
+        );
+
+    const height =
+        Math.min(
+            520,
+            desktop.clientHeight - 40
+        );
+
+
+    win.style.width =
+        `${Math.max(width, 350)}px`;
+
+    win.style.height =
+        `${Math.max(height, 250)}px`;
+
+
+    /*
+       Center the restored window
+       around its current position.
+    */
+
+    const currentRect =
+        win.getBoundingClientRect();
+
+    const desktopRect =
+        desktop.getBoundingClientRect();
+
+
+    let left =
+        currentRect.left -
+        desktopRect.left;
+
+    let top =
+        currentRect.top -
+        desktopRect.top;
+
+
+    /*
+       Keep it inside desktop.
+    */
+
+    left =
+        Math.max(
+            10,
+            Math.min(
+                left,
+                desktop.clientWidth -
+                win.offsetWidth -
+                10
+            )
+        );
+
+
+    top =
+        Math.max(
+            10,
+            Math.min(
+                top,
+                desktop.clientHeight -
+                win.offsetHeight -
+                10
+            )
+        );
+
+
+    win.style.left =
+        `${left}px`;
+
+    win.style.top =
+        `${top}px`;
+}
+
+
+/* ==========================================
+   SNAP SHORTCUTS
+========================================== */
+
+document.addEventListener(
+    "keydown",
+    (e) => {
+
+        /*
+           Ignore shortcuts while typing.
+        */
+
+        if (
+            e.target.tagName === "INPUT" ||
+            e.target.tagName === "TEXTAREA" ||
+            e.target.tagName === "SELECT"
+        ) {
+            return;
+        }
+
+
+        /*
+           Linux uses Super.
+
+           Ctrl is also supported because
+           browsers/websites can interfere
+           with Meta shortcuts.
+        */
+
+        const modifier =
+            e.metaKey ||
+            e.ctrlKey;
+
+
+        if (!modifier) {
+            return;
+        }
+
+
+        const activeWindow =
+            openWindows.find(
+                w => w.focused
+            );
+
+
+        if (!activeWindow) {
+            return;
+        }
+
+
+        let mode = null;
+
+
+        /* LEFT */
+
+        if (
+            e.key === "ArrowLeft"
+        ) {
+
+            mode = "left";
+
+        }
+
+
+        /* RIGHT */
+
+        else if (
+            e.key === "ArrowRight"
+        ) {
+
+            mode = "right";
+
+        }
+
+
+        /* MAXIMIZE */
+
+        else if (
+            e.key === "ArrowUp"
+        ) {
+
+            mode = "maximize";
+
+        }
+
+
+        /* RESTORE */
+
+        else if (
+            e.key === "ArrowDown"
+        ) {
+
+            if (
+                activeWindow.tiled
+            ) {
+
+                restoreWindow(
+                    activeWindow
+                );
+
+            }
+
+            e.preventDefault();
+
+            return;
+        }
+
+
+        /* TOGGLE */
+
+        else if (
+            e.key === "Enter"
+        ) {
+
+            if (
+                activeWindow.tiled
+            ) {
+
+                restoreWindow(
+                    activeWindow
+                );
+
+            } else {
+
+                applyTile(
+                    activeWindow,
+                    "left"
+                );
+
+            }
+
+            e.preventDefault();
+
+            return;
+        }
+
+
+        if (!mode) {
+            return;
+        }
+
+
+        e.preventDefault();
+
+
+        applyTile(
+            activeWindow,
+            mode
+        );
+
+    }
+);
+
+
+/* ==========================================
+   WINDOW MANAGEMENT
+========================================== */
+
+function launchApp(app) {
+
+    closeWhiskerMenu();
+
+
+    const winId =
+        Date.now() +
+        Math.random();
+
+
+    const win =
+        document.createElement(
+            "div"
+        );
+
+
+    win.className =
+        "window";
+
+
     win.style.zIndex =
         ++zIndexCounter;
 
-    focusWindow(winId);
 
-});
+    /* ========================================
+       STAGGER WINDOWS
+    ======================================== */
 
-
-titleBar.addEventListener("pointermove", (e) => {
-
-    if (!isDragging) return;
-
-    e.preventDefault();
-
-    const newLeft =
-        e.clientX - dragOffsetX;
-
-    const newTop =
-        e.clientY - dragOffsetY;
-
-    win.style.left =
-        `${newLeft}px`;
-
-    win.style.top =
-        `${newTop}px`;
-
-});
+    const offset =
+        (zIndexCounter % 10) *
+        30;
 
 
-function stopDragging(e) {
+    let startTop =
+        50 + offset;
 
-    if (!isDragging) return;
 
-    isDragging = false;
+    let startLeft =
+        100 + offset;
+
 
     if (
-        e &&
-        titleBar.hasPointerCapture(e.pointerId)
+        window.innerWidth <= 850
     ) {
-        titleBar.releasePointerCapture(
-            e.pointerId
+
+        startTop =
+            30 +
+            (offset / 2);
+
+
+        startLeft =
+            (
+                window.innerWidth -
+                (window.innerWidth * 0.9)
+            ) / 2 +
+            (offset / 2);
+
+    }
+
+
+    win.style.top =
+        `${startTop}px`;
+
+    win.style.left =
+        `${startLeft}px`;
+
+
+    win.innerHTML = `
+
+        <div class="title-bar">
+
+            <div class="title-info">
+
+                <img
+                    src="${app.icon}"
+                    onerror="
+                        this.src=
+                        'https://via.placeholder.com/18/333333/FFFFFF?text=${app.name.charAt(0)}'
+                    "
+                >
+
+                <span>
+                    ${app.name}
+                </span>
+
+            </div>
+
+
+            <div class="window-controls">
+
+                <button
+                    class="btn btn-max"
+                    title="Open in New Tab"
+                ></button>
+
+                <button
+                    class="btn btn-close"
+                    title="Exit"
+                ></button>
+
+            </div>
+
+        </div>
+
+
+        <div class="window-content">
+
+            <iframe
+                src="${app.url}"
+            ></iframe>
+
+        </div>
+
+
+        <div class="resize-handle"></div>
+
+    `;
+
+
+    desktop.appendChild(
+        win
+    );
+
+
+    /* ========================================
+       WINDOW STATE
+    ======================================== */
+
+    const winData = {
+
+        id: winId,
+
+        appId: app.id,
+
+        winElement: win,
+
+        focused: true,
+
+        tiled: false,
+
+        tileMode: null
+
+    };
+
+
+    openWindows.push(
+        winData
+    );
+
+
+    focusWindow(
+        winId
+    );
+
+
+    /* ========================================
+       BRING TO FRONT
+    ======================================== */
+
+    const bringToFront = () => {
+
+        win.style.zIndex =
+            ++zIndexCounter;
+
+        focusWindow(
+            winId
         );
+
+    };
+
+
+    win.addEventListener(
+        "mousedown",
+        bringToFront
+    );
+
+
+    win.addEventListener(
+        "touchstart",
+        bringToFront,
+        {
+            passive: true
+        }
+    );
+
+
+    /* ========================================
+       WINDOW CONTROLS
+    ======================================== */
+
+    const closeBtn =
+        win.querySelector(
+            ".btn-close"
+        );
+
+
+    const maxBtn =
+        win.querySelector(
+            ".btn-max"
+        );
+
+
+    const titleBar =
+        win.querySelector(
+            ".title-bar"
+        );
+
+
+    /* ========================================
+       CLOSE
+    ======================================== */
+
+    closeBtn.onclick = () => {
+
+        win.classList.add(
+            "closing"
+        );
+
+
+        openWindows =
+            openWindows.filter(
+                w =>
+                    w.id !== winId
+            );
+
+
+        renderUI();
+
+
+        setTimeout(
+            () => win.remove(),
+            200
+        );
+
+    };
+
+
+    /* ========================================
+       OPEN IN NEW TAB
+    ======================================== */
+
+    maxBtn.onclick = () => {
+
+        window.open(
+            app.url,
+            "_blank"
+        );
+
+
+        win.classList.add(
+            "closing"
+        );
+
+
+        openWindows =
+            openWindows.filter(
+                w =>
+                    w.id !== winId
+            );
+
+
+        renderUI();
+
+
+        setTimeout(
+            () => win.remove(),
+            200
+        );
+
+    };
+
+
+    /* ==========================================
+       DRAGGING
+       Mouse + Touch + Pen
+    ========================================== */
+
+    let isDragging = false;
+
+    let dragOffsetX = 0;
+
+    let dragOffsetY = 0;
+
+
+    const iframe =
+        win.querySelector(
+            "iframe"
+        );
+
+
+    /* ========================================
+       POINTER DOWN
+    ======================================== */
+
+    titleBar.addEventListener(
+        "pointerdown",
+        (e) => {
+
+            if (
+                !e.isPrimary
+            ) {
+                return;
+            }
+
+
+            /*
+               Only left mouse button.
+            */
+
+            if (
+                e.pointerType ===
+                    "mouse" &&
+                e.button !== 0
+            ) {
+
+                return;
+
+            }
+
+
+            /*
+               Don't drag controls.
+            */
+
+            if (
+                e.target.closest(
+                    ".window-controls"
+                )
+            ) {
+
+                return;
+
+            }
+
+
+            e.preventDefault();
+
+            e.stopPropagation();
+
+
+            /*
+               If the window is tiled,
+               restore it before dragging.
+            */
+
+            if (
+                winData.tiled
+            ) {
+
+                restoreWindow(
+                    winData
+                );
+
+                /*
+                   Recalculate after restore.
+                */
+
+            }
+
+
+            const rect =
+                win.getBoundingClientRect();
+
+
+            dragOffsetX =
+                e.clientX -
+                rect.left;
+
+
+            dragOffsetY =
+                e.clientY -
+                rect.top;
+
+
+            isDragging =
+                true;
+
+
+            currentSnapZone =
+                null;
+
+
+            /*
+               Pointer capture.
+            */
+
+            titleBar.setPointerCapture(
+                e.pointerId
+            );
+
+
+            /*
+               Stop iframe from stealing
+               pointer events.
+            */
+
+            if (iframe) {
+
+                iframe.style.pointerEvents =
+                    "none";
+
+            }
+
+
+            /*
+               Bring to front.
+            */
+
+            win.style.zIndex =
+                ++zIndexCounter;
+
+
+            focusWindow(
+                winId
+            );
+
+        }
+    );
+
+
+    /* ========================================
+       POINTER MOVE
+    ======================================== */
+
+    titleBar.addEventListener(
+        "pointermove",
+        (e) => {
+
+            if (
+                !isDragging
+            ) {
+                return;
+            }
+
+
+            e.preventDefault();
+
+
+            const newLeft =
+                e.clientX -
+                dragOffsetX;
+
+
+            const newTop =
+                e.clientY -
+                dragOffsetY;
+
+
+            win.style.left =
+                `${newLeft}px`;
+
+
+            win.style.top =
+                `${newTop}px`;
+
+
+            /*
+               Detect snap zone.
+            */
+
+            const snapZone =
+                detectSnapZone(
+                    e.clientX,
+                    e.clientY
+                );
+
+
+            if (
+                snapZone
+            ) {
+
+                if (
+                    currentSnapZone !==
+                    snapZone
+                ) {
+
+                    showTilePreview(
+                        snapZone
+                    );
+
+                }
+
+            } else {
+
+                hideTilePreview();
+
+            }
+
+        }
+    );
+
+
+    /* ========================================
+       STOP DRAGGING
+    ======================================== */
+
+    function stopDragging(e) {
+
+        if (
+            !isDragging
+        ) {
+            return;
+        }
+
+
+        isDragging =
+            false;
+
+
+        /*
+           Release pointer capture.
+        */
+
+        if (
+            e &&
+            titleBar.hasPointerCapture(
+                e.pointerId
+            )
+        ) {
+
+            titleBar.releasePointerCapture(
+                e.pointerId
+            );
+
+        }
+
+
+        /*
+           Restore iframe interaction.
+        */
+
+        if (iframe) {
+
+            iframe.style.pointerEvents =
+                "auto";
+
+        }
+
+
+        /*
+           Apply snap.
+        */
+
+        if (
+            currentSnapZone
+        ) {
+
+            applyTile(
+                winData,
+                currentSnapZone
+            );
+
+        }
+
+
+        hideTilePreview();
+
+        currentSnapZone =
+            null;
+
     }
 
-    if (iframe) {
-        iframe.style.pointerEvents =
-            "auto";
+
+    titleBar.addEventListener(
+        "pointerup",
+        stopDragging
+    );
+
+
+    titleBar.addEventListener(
+        "pointercancel",
+        stopDragging
+    );
+
+
+    /* ==========================================
+       RESIZING
+    ========================================== */
+
+    const resizeHandle =
+        win.querySelector(
+            ".resize-handle"
+        );
+
+
+    let isResizing =
+        false;
+
+
+    let startWidth;
+
+    let startHeight;
+
+    let startX;
+
+    let startY;
+
+
+    const startResize =
+        (
+            clientX,
+            clientY
+        ) => {
+
+            /*
+               A tiled window must become
+               floating before resizing.
+            */
+
+            if (
+                winData.tiled
+            ) {
+
+                restoreWindow(
+                    winData
+                );
+
+            }
+
+
+            isResizing =
+                true;
+
+
+            startWidth =
+                win.offsetWidth;
+
+
+            startHeight =
+                win.offsetHeight;
+
+
+            startX =
+                clientX;
+
+
+            startY =
+                clientY;
+
+
+            if (iframe) {
+
+                iframe.style.pointerEvents =
+                    "none";
+
+            }
+
+        };
+
+
+    const doResize =
+        (
+            clientX,
+            clientY
+        ) => {
+
+            if (
+                !isResizing
+            ) {
+                return;
+            }
+
+
+            const newWidth =
+                startWidth +
+                (
+                    clientX -
+                    startX
+                );
+
+
+            const newHeight =
+                startHeight +
+                (
+                    clientY -
+                    startY
+                );
+
+
+            /*
+               Minimum window size.
+            */
+
+            win.style.width =
+                `${Math.max(
+                    300,
+                    newWidth
+                )}px`;
+
+
+            win.style.height =
+                `${Math.max(
+                    200,
+                    newHeight
+                )}px`;
+
+        };
+
+
+    const stopResize =
+        () => {
+
+            isResizing =
+                false;
+
+
+            if (iframe) {
+
+                iframe.style.pointerEvents =
+                    "auto";
+
+            }
+
+        };
+
+
+    /* ========================================
+       MOUSE RESIZE
+    ======================================== */
+
+    resizeHandle.addEventListener(
+        "mousedown",
+        (e) => {
+
+            e.stopPropagation();
+
+            startResize(
+                e.clientX,
+                e.clientY
+            );
+
+
+            document.addEventListener(
+                "mousemove",
+                onResizeMove
+            );
+
+
+            document.addEventListener(
+                "mouseup",
+                onResizeUp
+            );
+
+        }
+    );
+
+
+    function onResizeMove(e) {
+
+        doResize(
+            e.clientX,
+            e.clientY
+        );
+
     }
 
-}
 
-
-titleBar.addEventListener(
-    "pointerup",
-    stopDragging
-);
-
-titleBar.addEventListener(
-    "pointercancel",
-    stopDragging
-);
-    // Custom Resizing Logic
-    const resizeHandle = win.querySelector('.resize-handle');
-    let isResizing = false;
-    let startWidth, startHeight;
-    let startX, startY;
-
-    const startResize = (clientX, clientY) => {
-        isResizing = true;
-        startWidth = win.offsetWidth;
-        startHeight = win.offsetHeight;
-        startX = clientX;
-        startY = clientY;
-        if (iframe) iframe.style.pointerEvents = 'none';
-    };
-
-    const doResize = (clientX, clientY) => {
-        if (!isResizing) return;
-        win.style.width = `${startWidth + (clientX - startX)}px`;
-        win.style.height = `${startHeight + (clientY - startY)}px`;
-    };
-
-    const stopResize = () => {
-        isResizing = false;
-        if (iframe) iframe.style.pointerEvents = 'auto';
-    };
-
-    // Mouse Events for Resizing
-    resizeHandle.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        startResize(e.clientX, e.clientY);
-        document.addEventListener('mousemove', onResizeMove);
-        document.addEventListener('mouseup', onResizeUp);
-    });
-
-    function onResizeMove(e) { doResize(e.clientX, e.clientY); }
     function onResizeUp() {
+
         stopResize();
-        document.removeEventListener('mousemove', onResizeMove);
-        document.removeEventListener('mouseup', onResizeUp);
+
+
+        document.removeEventListener(
+            "mousemove",
+            onResizeMove
+        );
+
+
+        document.removeEventListener(
+            "mouseup",
+            onResizeUp
+        );
+
     }
 
-    // Touch Events for Resizing
-    resizeHandle.addEventListener('touchstart', (e) => {
-        e.stopPropagation();
-        const touch = e.touches[0];
-        startResize(touch.clientX, touch.clientY);
-        document.addEventListener('touchmove', onTouchResizeMove, { passive: false });
-        document.addEventListener('touchend', onTouchResizeUp);
-    });
+
+    /* ========================================
+       TOUCH RESIZE
+    ======================================== */
+
+    resizeHandle.addEventListener(
+        "touchstart",
+        (e) => {
+
+            e.stopPropagation();
+
+
+            const touch =
+                e.touches[0];
+
+
+            startResize(
+                touch.clientX,
+                touch.clientY
+            );
+
+
+            document.addEventListener(
+                "touchmove",
+                onTouchResizeMove,
+                {
+                    passive: false
+                }
+            );
+
+
+            document.addEventListener(
+                "touchend",
+                onTouchResizeUp
+            );
+
+        }
+    );
+
 
     function onTouchResizeMove(e) {
+
         e.preventDefault();
-        const touch = e.touches[0];
-        doResize(touch.clientX, touch.clientY);
+
+
+        const touch =
+            e.touches[0];
+
+
+        doResize(
+            touch.clientX,
+            touch.clientY
+        );
+
     }
 
+
     function onTouchResizeUp() {
+
         stopResize();
-        document.removeEventListener('touchmove', onTouchResizeMove);
-        document.removeEventListener('touchend', onTouchResizeUp);
+
+
+        document.removeEventListener(
+            "touchmove",
+            onTouchResizeMove
+        );
+
+
+        document.removeEventListener(
+            "touchend",
+            onTouchResizeUp
+        );
+
     }
+
 }
+
 function updateDockClock() {
     const now = new Date();
 

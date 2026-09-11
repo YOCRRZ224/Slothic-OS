@@ -1188,6 +1188,69 @@
     }
 
 }
+        /* ==========================================
+   WINDOW TILING / SNAP PREVIEW
+========================================== */
+
+#tile-preview {
+    position: absolute;
+
+    pointer-events: none;
+
+    z-index: 999999;
+
+    box-sizing: border-box;
+
+    opacity: 0;
+    visibility: hidden;
+
+    transform: scale(0.96);
+
+    background: rgba(255, 255, 255, 0.12);
+
+    border: 2px solid rgba(255, 255, 255, 0.35);
+
+    border-radius: 12px;
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+
+    transition:
+        opacity 0.15s ease,
+        transform 0.15s ease,
+        left 0.15s ease,
+        top 0.15s ease,
+        width 0.15s ease,
+        height 0.15s ease;
+}
+
+#tile-preview.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1);
+}
+
+
+/* ==========================================
+   TILED WINDOW
+========================================== */
+
+.window.tiled {
+    transition:
+        left 0.18s cubic-bezier(.22,.8,.2,1),
+        top 0.18s cubic-bezier(.22,.8,.2,1),
+        width 0.18s cubic-bezier(.22,.8,.2,1),
+        height 0.18s cubic-bezier(.22,.8,.2,1);
+}
+
+
+/* ==========================================
+   OPTIONAL: REMOVE RESIZE HANDLE WHEN TILED
+========================================== */
+
+.window.tiled .resize-handle {
+    display: none;
+}`:width`
     </style>
 </head>
 <body>
